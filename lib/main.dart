@@ -1,29 +1,19 @@
+import 'package:face2feel/screens/camera_screen.dart';
 import 'package:flutter/material.dart';
 
+
 void main() {
-  runApp(const MyApp());
+  runApp(const Face2FeelApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Face2FeelApp extends StatelessWidget {
+  const Face2FeelApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
+      home: CameraScreen(),
       debugShowCheckedModeBanner: false,
-      title: 'Dummy App',
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text("Hello Flutter"),
-          backgroundColor: Colors.blue,
-        ),
-        body: const Center(
-          child: Text(
-            "It works! 🎉",
-            style: TextStyle(fontSize: 24),
-          ),
-        ),
-      ),
     );
   }
 }

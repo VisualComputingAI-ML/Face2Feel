@@ -5,9 +5,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Initialize OpenAI with new API format
-client = openai.OpenAI(api_key=os.getenv("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"))
-
+# Initialize OpenAI - USE ENVIRONMENT VARIABLE ONLY
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  
 def get_counseling_response(emotion: str, user_message: str) -> str:
     """
     Get empathetic counseling response based on detected emotion

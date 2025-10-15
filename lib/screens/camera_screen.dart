@@ -1,10 +1,9 @@
 import 'dart:io';
+import 'package:face2feel/services/api_services.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'dart:convert';
-
 import 'package:image_picker/image_picker.dart';
+import 'chat_screen.dart';
+
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
@@ -20,179 +19,275 @@ class _CameraScreenState extends State<CameraScreen> {
   final picker = ImagePicker();
 
   Future<void> _pickImage() async {
-  try {
-    final picked = await picker.pickImage(source: ImageSource.camera);
-    
-    if (picked != null) {
-      setState(() {
-        _image = File(picked.path);
-        _isLoading = true;
-        _emotion = null;
-        _confidence = null;
-      });
-
-      print("📸 Image captured: ${_image!.path}");
-      print("📱 Image size: ${_image!.lengthSync()} bytes");
-      print("🌐 Sending request to server...");
-
-      // Test the connection first
-      try {
-        var testResponse = await http.get(Uri.parse("http://10.145.122.110:8000/"));
-        print("✅ Server connection test: ${testResponse.statusCode}");
-        print("✅ Server response: ${testResponse.body}");
-      } catch (e) {
-        print("❌ Server connection failed: $e");
-      }
-
-      var uri = Uri.parse("http://10.145.122.110:8000/predict");
-      print("🔗 API Endpoint: $uri");
-
-      var request = http.MultipartRequest('POST', uri);
-      request.files.add(await http.MultipartFile.fromPath(
-        'file',
-        _image!.path,
-        contentType: MediaType('image', 'jpeg'),
-      ));
-
-      print("📤 Starting file upload...");
+    try {
+      final picked = await picker.pickImage(source: ImageSource.camera);
       
-      var response = await request.send();
-      print("📥 Response received. Status: ${response.statusCode}");
-      
-      var responseBody = await response.stream.bytesToString();
-      print("📄 Response body: $responseBody");
+      if (picked != null) {
+        setState(() {
+          _image = File(picked.path);
+          _isLoading = true;
+        });
 
-      if (response.statusCode == 200) {
-        var data = jsonDecode(responseBody);
-        print("✅ Prediction successful!");
-        print("🎭 Emotion: ${data["emotion"]}");
-        print("📊 Confidence: ${data["confidence"]}");
+        print("📸 Image captured, detecting emotion...");
+        
+        Map<String, dynamic> result = await ApiService.uploadImage(_image!);
         
         setState(() {
-          _emotion = data["emotion"];
-          _confidence = data["confidence"];
+          _emotion = result["emotion"];
+          _confidence = result["confidence"]?.toDouble();
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Emotion detected: $_emotion!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        print("❌ Server error: ${response.statusCode}");
-        throw Exception("Server returned ${response.statusCode}: $responseBody");
+        // Show emotion result and option to chat
+        _showEmotionResult();
       }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showError("Error detecting emotion: $e");
     }
-  } catch (e) {
-    print("💥 ERROR: $e");
-    setState(() => _isLoading = false);
-    
+  }
+
+  void _showEmotionResult() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Emotion Detected!"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _emotion!.toUpperCase(),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            SizedBox(height: 10),
+            Text("Confidence: ${_confidence!.toStringAsFixed(2)}"),
+            SizedBox(height: 20),
+            Text("Would you like to chat with a counselor about how you're feeling?"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Maybe Later"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _navigateToChat();
+            },
+            child: Text("Yes, Let's Chat"),
+          ),
+        ],
+      ),
+    );
+  }
+void _navigateToChat() {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ChatScreen(), // No parameters needed
+    ),
+  );
+}
+  void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Error: $e"),
+        content: Text(message),
         backgroundColor: Colors.red,
       ),
     );
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Capture Emotion")),
-      body: SingleChildScrollView( // Wrap with SingleChildScrollView to avoid overflow
+      appBar: AppBar(
+        title: const Text("Capture Your Emotion"),
+        backgroundColor: Colors.blueAccent,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blue.shade50, Colors.purple.shade50],
+          ),
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20),
-              _image != null
-                  ? Container(
-                      height: 250,
-                      width: 250,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Image.file(_image!, fit: BoxFit.cover),
-                    )
-                  : Container(
-                      height: 250,
-                      width: 250,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.camera_alt, size: 50, color: Colors.grey),
-                          SizedBox(height: 10),
-                          Text("No image captured yet"),
-                        ],
-                      ),
-                    ),
-              const SizedBox(height: 30),
-              _isLoading
-                  ? const Column(
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 10),
-                        Text("Processing image..."),
-                      ],
-                    )
-                  : ElevatedButton(
-                      onPressed: _pickImage,
-                      child: const Text("Capture Image"),
-                    ),
-              const SizedBox(height: 30),
-              if (_emotion != null)
+              // Emotion display if detected
+              if (_emotion != null) ...[
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.blue),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
                       Text(
-                        "Detected Emotion:",
+                        "Current Emotion:",
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[700],
+                          color: Colors.grey.shade700,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 8),
                       Text(
                         _emotion!.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 24,
+                        style: TextStyle(
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: _getEmotionColor(_emotion!),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 8),
                       Text(
                         "Confidence: ${_confidence!.toStringAsFixed(2)}",
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey[700],
+                          color: Colors.grey.shade600,
                         ),
                       ),
                     ],
                   ),
                 ),
-              const SizedBox(height: 20),
+                SizedBox(height: 30),
+              ],
+
+              // Image preview
+              Container(
+                height: 250,
+                width: 250,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: _image != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(15),
+                        child: Image.file(_image!, fit: BoxFit.cover),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+  Icons.face,  // or Icons.face_outlined
+  size: 60,
+  color: Colors.blue.shade300,
+),
+                          SizedBox(height: 10),
+                          Text(
+                            "Capture your face\nto detect emotion",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+
+              SizedBox(height: 40),
+
+              // Action buttons
+              _isLoading
+                  ? Column(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text(
+                          "Analyzing your emotion...",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    )
+                  : ElevatedButton(
+                      onPressed: _pickImage,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.camera_alt),
+                          SizedBox(width: 10),
+                          Text(
+                            "Capture Emotion",
+                            style: TextStyle(fontSize: 18),
+                          ),
+                        ],
+                      ),
+                    ),
+
+              if (_emotion != null) ...[
+                SizedBox(height: 20),
+                OutlinedButton(
+                  onPressed: _navigateToChat,
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: Text(
+                    "Chat with Counselor",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  Color _getEmotionColor(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'happy':
+        return Colors.green;
+      case 'sad':
+        return Colors.blue;
+      case 'angry':
+        return Colors.red;
+      case 'surprised':
+        return Colors.orange;
+      case 'fear':
+        return Colors.purple;
+      case 'disgust':
+        return Colors.brown;
+      default:
+        return Colors.grey;
+    }
   }
 }

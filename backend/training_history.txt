@@ -1,0 +1,23 @@
+vit_small_patch16_224       FER-2013 dataset                    Validation Accuracy: 67.79%
+vit_small_patch16_224       FER-2013, AffectNet dataset         Validation Accuracy: 69.53%
+vit_small_patch16_224       FER-2013, AffectNet dataset         Validation Accuracy: 69.65%
+                            Dataset augmentation
+inception-v3                                                    Validation Accuracy: 68.93%
+vit_small_patch_16_224      Face Alignment                      Validation Accuracy: 71.63%     Test Accuracy: 72.45%
+
+vgg 16                      Face Alignment                      Validation Accuracy: 71.63%     Test Accuracy: 71.45%
+Classification Report:
+              precision    recall  f1-score   support
+
+       anger       0.68      0.59      0.63      1355
+     disgust       0.65      0.51      0.57       669
+        fear       0.64      0.51      0.56      1328
+       happy       0.89      0.92      0.91      2290
+     neutral       0.76      0.82      0.79      1819
+         sad       0.60      0.83      0.70      1402
+    surprise       0.69      0.60      0.64      1329
+
+    accuracy                           0.72     10192
+   macro avg       0.70      0.68      0.69     10192
+weighted avg       0.72      0.72      0.72     10192
+
